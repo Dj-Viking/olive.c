@@ -24,7 +24,12 @@ void build_assets(void)
 
 void build_tests(void)
 {
+    // -fsanitize is not supported on apple clang
+    #if __APPLE__
+    CMD("clang", COMMON_CFLAGS, "-o", "./build/test", "test.c", "-lm");
+    #elif
     CMD("clang", COMMON_CFLAGS, "-fsanitize=memory", "-o", "./build/test", "test.c", "-lm");
+    #endif
 }
 
 // TODO: move copy_file to nobuild.h
@@ -65,8 +70,12 @@ void copy_file(const char *src_file_path, const char *dst_file_path)
 
 Pid build_wasm_demo(const char *name)
 {
+    #define arch "-arch", "x86_64"
+    #define target "x86_64-wasm32-darwin"
+    #define WLFLAGS "-Wl,--no-entry,--export=vc_render,--export=__heap_base,--allow-undefined"
+    //-target <arch><sub>-<vendor>-<sys>-<env>
     Cmd cmd = {
-        .line = cstr_array_make("clang", COMMON_CFLAGS, "-O2", "-fno-builtin", "--target=wasm32", "--no-standard-libraries", "-Wl,--no-entry", "-Wl,--export=vc_render", "-Wl,--export=__heap_base", "-Wl,--allow-undefined", "-o", CONCAT("./build/demos/", name, ".wasm"), "-DVC_PLATFORM=VC_WASM_PLATFORM", CONCAT("./demos/", name, ".c"), NULL)
+        .line = cstr_array_make("clang", "-v", COMMON_CFLAGS, "-O2", "-nostdlib", "-fno-builtin", arch, "-target", target, "-Wl,--no-entry", "-o", CONCAT("./build/demos/", name, ".wasm"), "-DVC_PLATFORM=VC_WASM_PLATFORM", CONCAT("./demos/", name, ".c"), NULL)
     };
     INFO("CMD: %s", cmd_show(cmd));
     return cmd_run_async(cmd, NULL, NULL);

@@ -115,3 +115,16 @@ The support for several platforms is provided by Demo Virtual Console. It is imp
 - [./js/vc.js](./js/vc.js) -- the JavaScript runtime for running in a browser when compiled to WebAssembly.
 
 The Demo Virtual Console is not part of the main library and is designed specifically for demos. (I do consider including it into the main library, 'cause it looks pretty useful. The library is still in development).
+
+# MACOS notes
+web assembly compilation as is isn't working currently following this slowly to recreate the steps
+for some reason clang isn't passing the -Wl flags to wasm-ld but instead ld
+
+https://surma.dev/things/c-to-webassembly/index.html
+
+1. 
+```shell
+
+clang -nostdlib --target=wasm32 -emit-llvm -c -S ./demos/cup3d.c -DVC_PLATFORM=VC_WASM_PLATFORM
+
+```

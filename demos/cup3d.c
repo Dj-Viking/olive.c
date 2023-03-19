@@ -1,2 +1,2 @@
-#include "assets/tsodinCupLowPoly.c"
+#include "../build/assets/tsodinCupLowPoly.c"
 #include "model3d.c"

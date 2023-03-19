@@ -35,6 +35,7 @@
 Olivec_Canvas vc_render(float dt);
 
 #ifndef VC_PLATFORM
+#define VC_PLATFORM 1
 #error "Please define VC_PLATFORM macro"
 #endif
 
@@ -50,8 +51,21 @@ Olivec_Canvas vc_render(float dt);
 #define return_defer(value) do { result = (value); goto defer; } while (0)
 
 static SDL_Texture *vc_sdl_texture = NULL;
+
+typedef struct ErrorInsights {
+    int errorCode;
+    SDL_Rect *rect;
+} ErrorInsights;
+
+// for some reason when this is initialized zero (on this MBP Catalina OSX) the window won't open
+// and will get SDL ERROR: Invalid rectangle dimensions for LockTexture.
+#if __APPLE__
+static size_t vc_sdl_actual_width = 1;
+static size_t vc_sdl_actual_height = 1;
+#elif
 static size_t vc_sdl_actual_width = 0;
 static size_t vc_sdl_actual_height = 0;
+#endif
 
 static bool vc_sdl_resize_texture(SDL_Renderer *renderer, size_t new_width, size_t new_height)
 {
@@ -63,12 +77,19 @@ static bool vc_sdl_resize_texture(SDL_Renderer *renderer, size_t new_width, size
     return true;
 }
 
+void Error_Init(ErrorInsights *e, SDL_Rect *rect, int code)
+{
+    e->errorCode = code;
+    e->rect = rect;
+}
+
 int main(void)
 {
     int result = 0;
 
     SDL_Window *window = NULL;
     SDL_Renderer *renderer = NULL;
+    ErrorInsights error;
 
     {
         if (SDL_Init(SDL_INIT_VIDEO) < 0) return_defer(1);
@@ -106,12 +127,16 @@ int main(void)
                 // Render the texture
                 Olivec_Canvas oc_src = vc_render(dt);
                 if (oc_src.width != vc_sdl_actual_width || oc_src.height != vc_sdl_actual_height) {
-                    if (!vc_sdl_resize_texture(renderer, oc_src.width, oc_src.height)) return_defer(1);
+                    bool result = vc_sdl_resize_texture(renderer, oc_src.width, oc_src.height);
+                    if (!result) return_defer(1);
                     SDL_SetWindowSize(window, vc_sdl_actual_width, vc_sdl_actual_height);
                 }
                 void *pixels_dst;
                 int pitch;
-                if (SDL_LockTexture(vc_sdl_texture, &window_rect, &pixels_dst, &pitch) < 0) return_defer(1);
+                if (SDL_LockTexture(vc_sdl_texture, &window_rect, &pixels_dst, &pitch) < 0) {
+                    Error_Init(&error, &window_rect, 1);
+                    return_defer(error.errorCode);
+                }
                 for (size_t y = 0; y < vc_sdl_actual_height; ++y) {
                     // TODO: it would be cool if Olivec_Canvas supported pitch in bytes instead of pixels
                     // It would be more flexible and we could draw on the locked texture memory directly
@@ -128,19 +153,30 @@ int main(void)
         }
     }
 
-defer:
-    switch (result) {
+defer: 
+    switch (error.errorCode) {
     case 0:
         printf("OK\n");
         break;
-    default:
-        fprintf(stderr, "SDL ERROR: %s\n", SDL_GetError());
+    default: {
+        char* pch;
+        pch = strstr(SDL_GetError(), "Invalid rectangle dimensions");
+        if (pch != NULL) {
+            fprintf(stderr, "SDL ERROR: %s\n", SDL_GetError());
+            printf("window location when this error happened x: %d, y: %d\n", error.rect->x, error.rect->y);
+            printf("input dimensions were H: %d, W: %d\n", error.rect->h, error.rect->w);
+        } else {
+            // sometimes this error is just blank for some sdl demos when exiting (shrugs)
+            fprintf(stderr, "SDL ERROR: %s\n", SDL_GetError());
+        }
+    }
     }
     if (vc_sdl_texture) SDL_DestroyTexture(vc_sdl_texture);
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);
     SDL_Quit();
-    return result;
+    return error.errorCode;
+
 }
 #elif VC_PLATFORM == VC_TERM_PLATFORM
 
