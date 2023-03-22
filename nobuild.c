@@ -75,7 +75,7 @@ Pid build_wasm_demo(const char *name)
     #define WLFLAGS "-Wl,--no-entry,--export=vc_render,--export=__heap_base,--allow-undefined"
     //-target <arch><sub>-<vendor>-<sys>-<env>
     Cmd cmd = {
-        .line = cstr_array_make("clang", "-v", COMMON_CFLAGS, "-O2", "-nostdlib", "-fno-builtin", arch, "-target", target, "-Wl,--no-entry", "-o", CONCAT("./build/demos/", name, ".wasm"), "-DVC_PLATFORM=VC_WASM_PLATFORM", CONCAT("./demos/", name, ".c"), NULL)
+        .line = cstr_array_make("clang", "-v", COMMON_CFLAGS, "-O2", "-nostdlib", "-fno-builtin", arch, "-target", target, WLFLAGS, "-o", CONCAT("./build/demos/", name, ".wasm"), "-DVC_PLATFORM=VC_WASM_PLATFORM", CONCAT("./demos/", name, ".c"), NULL)
     };
     INFO("CMD: %s", cmd_show(cmd));
     return cmd_run_async(cmd, NULL, NULL);
